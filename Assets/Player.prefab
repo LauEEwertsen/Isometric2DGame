@@ -101,7 +101,7 @@ GameObject:
   - component: {fileID: 4192667450841502022}
   m_Layer: 0
   m_Name: Player
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -134,11 +134,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c0eb210655e57924bbde804634088cc9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _rb: {fileID: 4192667450841502022}
-  _speed: 5
+  rb: {fileID: 0}
+  speed: 5
   move: {fileID: 3429611554347037316, guid: aac2fb2eb2ef13a4b8fe7a58a7987487, type: 3}
-  speedMultiplier: 1
-  defaultSpeedMultiplier: 1
   visual: {fileID: 1266240019559211390}
   groundTilemap: {fileID: 0}
 --- !u!114 &109345854771887137
