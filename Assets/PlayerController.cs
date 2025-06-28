@@ -8,15 +8,15 @@ using UnityEngine.Windows;
 // A behaviour that is attached to a playable
 public class PlayerController : MonoBehaviour
 {
-    [SerializeField] private Rigidbody2D _rb;
-    [SerializeField] private float _speed = 5;
+    [SerializeField] private Rigidbody2D rb;
+    [SerializeField] private float speed = 5;
 
-    private Vector2 _inputVector;
+    private Vector2 inputVector;
 
     [SerializeField] InputActionReference move;
 
-    [SerializeField] float speedMultiplier = 1f;
-    [SerializeField] float defaultSpeedMultiplier = 1f;
+    float speedMultiplier = 1f;
+    float defaultSpeedMultiplier = 1f;
 
     [SerializeField] private Transform visual;
 
@@ -24,13 +24,13 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
-        _inputVector = move.action.ReadValue<Vector2>();
+        inputVector = move.action.ReadValue<Vector2>();
     }
 
     private void FixedUpdate()
     {
         // Raw input (WASD / Arrow Keys)
-        Vector2 input = _inputVector.normalized;
+        Vector2 input = inputVector.normalized;
 
         // Convert input to isometric direction
         Vector2 isoDirection = new Vector2(
@@ -38,10 +38,11 @@ public class PlayerController : MonoBehaviour
             (input.y - input.x) / 2f
         ).normalized;
 
-        _rb.linearVelocity = isoDirection * _speed * speedMultiplier;
+        rb.linearVelocity = isoDirection * speed * speedMultiplier;
 
         CheckCurrentTile();
 
+        //Turns the player to face the direction they're moving    
         if (isoDirection != Vector2.zero)
         {
             float angle = Mathf.Atan2(isoDirection.y, isoDirection.x) * Mathf.Rad2Deg;
@@ -55,7 +56,7 @@ public class PlayerController : MonoBehaviour
             visual.rotation = Quaternion.Euler(currentEuler.x, currentEuler.y, angle + correction);
         } else
         {
-            _rb.linearVelocity = Vector2.zero;
+            rb.linearVelocity = Vector2.zero;
         }
     }
 
