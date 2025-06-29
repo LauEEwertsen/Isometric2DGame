@@ -1,42 +1,55 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using static UnityEngine.RuleTile.TilingRuleOutput;
+using UnityEngine.AI;
 
 enum EnemyState { Idle, Patrol, Chase, Attack, Search}
-//enum IsoDirection { NE, NW, SW, SE }
 
 public class EnemyAI : MonoBehaviour
 {
     EnemyState currentState;
 
-    [SerializeField] UnityEngine.Transform player;
+    [Header("Basic AI Properties")]
     [SerializeField] float detectionRange = 3f;
     [SerializeField] float attackRange = 0.5f;
     [SerializeField] float speed = 2f;
+    [SerializeField] float patrolSpeed = 1f;
+    [SerializeField] float chaseSpeed = 3f;
+    [SerializeField] UnityEngine.Transform player;
+    //[SerializeField] Rigidbody2D rb;
 
-    [SerializeField] Tilemap groundTilemap;
+    //float speedMultiplier = 1f;
+    float defaultSpeedMultiplier = 1f;
 
+
+    [Header("Visual Indicators")]
     [SerializeField] UnityEngine.Transform visualBody;
     [SerializeField] GameObject idleIcon;
-    [SerializeField] Rigidbody2D _rb;
 
+
+    [Header("Idle Interactions")]
     [SerializeField] float minIdleTime = 1f;
     [SerializeField] float maxIdleTime = 3f;
+
     float idleTimer = 0f;
     bool isWaiting = false;
     bool resumePatrolAfterIdle = false;
 
-    [SerializeField] GameObject patrolParent;
-    UnityEngine.Transform[] patrolPoints;
 
+    [Header("Patrol")]
+    [SerializeField] GameObject patrolParent;
+
+    UnityEngine.Transform[] patrolPoints;
     int patrolIndex = 0;
 
-    float speedMultiplier = 1f;
-    float defaultSpeedMultiplier = 1f;
 
+    [Header("Pathfinding")]
+    [SerializeField] Tilemap groundTilemap;
+    NavMeshAgent agent;
     Vector2? lastKnownPlayerPosition = null;
     bool goToLastKnown = false;
 
@@ -46,20 +59,20 @@ public class EnemyAI : MonoBehaviour
     }
     private void Start()
     {
+        agent = GetComponent<NavMeshAgent>();
+        agent.updateRotation = false;
+        agent.updateUpAxis = false;
+
         resumePatrolAfterIdle = true;
-        currentState = EnemyState.Idle;
 
         patrolPoints = patrolParent.GetComponentsInChildren<UnityEngine.Transform>()
             .Where(t => t != patrolParent.transform).ToArray().OrderBy(x => UnityEngine.Random.value).ToArray();
-
-        foreach (var transform in patrolPoints)
-        {
-            Debug.Log(transform.name + " - " + transform.position);
-        }
     }
 
     private void FixedUpdate()
     {
+        
+
         switch (currentState)
         {
             case EnemyState.Idle:
@@ -81,9 +94,14 @@ public class EnemyAI : MonoBehaviour
 
         if (currentState != EnemyState.Idle) idleIcon.SetActive(false);
 
-        CheckTransitions();
+        if (agent.hasPath && agent.remainingDistance > 0.05f)
+        {
+            Vector2 moveDir = (agent.steeringTarget - transform.position).normalized;
+            FaceIsometricDirection(moveDir);
+        }
 
         CheckCurrentTile();
+        CheckTransitions();
     }
 
     void CheckTransitions()
@@ -108,6 +126,7 @@ public class EnemyAI : MonoBehaviour
                 break;
 
             case EnemyState.Chase:
+
                 if (distance <= attackRange)
                 {
                     currentState = EnemyState.Attack;
@@ -116,10 +135,7 @@ public class EnemyAI : MonoBehaviour
                 {
                     if (lastKnownPlayerPosition.HasValue)
                     {
-                        currentState = EnemyState.Idle; // We’ll use idle as a short pause before moving
-                        resumePatrolAfterIdle = false;
-                        goToLastKnown = true;
-                        isWaiting = false;
+                        currentState = EnemyState.Search; //Use idle as short pause
                     }
                     else
                     {
@@ -139,12 +155,9 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
-
-
     void HandlePatrol()
-    {       
+    {
         Vector2 targetPos = patrolPoints[patrolIndex].position;
-        Vector2 moveDir = (targetPos - (Vector2)transform.position).normalized;
 
         if (Vector2.Distance(transform.position, targetPos) < 0.1f)
         {
@@ -155,13 +168,13 @@ public class EnemyAI : MonoBehaviour
             return;
         }
 
-        movingToTarget(moveDir, targetPos);
+        movingToTarget(targetPos, patrolSpeed);
     }
+
 
     void HandleChase()
     {
-        Vector2 moveDir = (player.position - transform.position).normalized;
-        movingToTarget(moveDir, player.position);
+        movingToTarget(player.position, chaseSpeed);
     }
 
     void HandleAttack()
@@ -172,7 +185,6 @@ public class EnemyAI : MonoBehaviour
 
     void HandleIdle()
     {
-        _rb.linearVelocity = Vector2.zero;
         idleIcon.SetActive(true);
 
         if (!isWaiting)
@@ -194,8 +206,9 @@ public class EnemyAI : MonoBehaviour
                 return;
             }
 
-            if (resumePatrolAfterIdle && patrolPoints.Length > 0)
+            if (resumePatrolAfterIdle && patrolParent != null)
             {
+                LoadAndShufflePatrolPoints();
                 resumePatrolAfterIdle = false;
                 currentState = EnemyState.Patrol;
             }
@@ -204,7 +217,7 @@ public class EnemyAI : MonoBehaviour
 
     void HandleSearch()
     {
-        // Check if player is visible again
+        // Reacquire player
         if (checkIfDetectedPlayer())
         {
             currentState = EnemyState.Chase;
@@ -212,7 +225,6 @@ public class EnemyAI : MonoBehaviour
             return;
         }
 
-        // If no player in sight, move toward last known position
         if (!lastKnownPlayerPosition.HasValue)
         {
             currentState = EnemyState.Idle;
@@ -221,14 +233,18 @@ public class EnemyAI : MonoBehaviour
         }
 
         Vector2 target = lastKnownPlayerPosition.Value;
-        Vector2 moveDir = (target - (Vector2)transform.position).normalized;
-        movingToTarget(moveDir, target);
 
+        // Move toward last known position
+        movingToTarget(target, chaseSpeed);
+
+        // If reached destination, start idle timer
         if (Vector2.Distance(transform.position, target) < 0.1f)
         {
             lastKnownPlayerPosition = null;
+            goToLastKnown = false;
             currentState = EnemyState.Idle;
             resumePatrolAfterIdle = true;
+            isWaiting = false;
         }
     }
 
@@ -242,8 +258,6 @@ public class EnemyAI : MonoBehaviour
 
         visualBodyCollider.enabled = true;
 
-        Debug.Log(hit.distance);
-
         Debug.DrawRay(visualBody.position, directionToPlayer * detectionRange, Color.red); // For debugging in scene view
 
         if (hit.collider != null && hit.collider.CompareTag("Player")) 
@@ -255,25 +269,26 @@ public class EnemyAI : MonoBehaviour
     }
     void CheckCurrentTile()
     {
-        Vector3 worldPos = transform.position;
+        Vector3 worldPos = transform.position   ;
+        worldPos.z = 0;  // Ensure it's the correct tilemap slice
         Vector3Int cellPos = groundTilemap.WorldToCell(worldPos);
         TileBase tile = groundTilemap.GetTile(cellPos);
 
         if (tile is SpeedTile speedTile)
         {
-            speedMultiplier = speedTile.speedMultiplier;
+            agent.speed = speed * speedTile.speedMultiplier;
         }
         else
         {
-            speedMultiplier = defaultSpeedMultiplier;
+            agent.speed = speed * defaultSpeedMultiplier;
         }
     }
 
-    void movingToTarget(Vector2 moveDir, Vector2 target)
+    void movingToTarget(Vector2 target, float overrideSpeed = -1f)
     {
-        FaceIsometricDirection(moveDir);
+        speed = overrideSpeed;
 
-        transform.position = Vector2.MoveTowards(transform.position, target, speed * speedMultiplier * Time.deltaTime);
+        agent.SetDestination(target);
     }
 
     void FaceIsometricDirection(Vector2 dir)
@@ -283,6 +298,7 @@ public class EnemyAI : MonoBehaviour
 
         float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
 
+        // Snap to closest isometric direction (45°, 135°, etc.)
         float[] allowedAngles = { 45f, 135f, 225f, 315f };
         float closestAngle = allowedAngles
             .OrderBy(a => Mathf.Abs(Mathf.DeltaAngle(angle, a)))
@@ -290,6 +306,15 @@ public class EnemyAI : MonoBehaviour
 
         visualBody.rotation = Quaternion.Euler(300f, 0f, closestAngle);
     }
+
+    private void LoadAndShufflePatrolPoints()
+    {
+        patrolPoints = patrolParent.GetComponentsInChildren<UnityEngine.Transform>()
+            .Where(t => t != patrolParent.transform) // Exclude the parent
+            .OrderBy(x => UnityEngine.Random.value) // Randomize order
+            .ToArray();
+
+        patrolIndex = 0;
+    }
+
 }
-
-
