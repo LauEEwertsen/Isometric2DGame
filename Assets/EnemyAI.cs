@@ -7,7 +7,8 @@ using UnityEngine.Tilemaps;
 using static UnityEngine.RuleTile.TilingRuleOutput;
 using UnityEngine.AI;
 
-enum EnemyState { Idle, Patrol, Chase, Attack, Search}
+enum EnemyState { Idle = 0, Patrol = 1, Chase = 2, Attack = 3, Search = 4 }
+
 
 public class EnemyAI : MonoBehaviour
 {
@@ -24,7 +25,7 @@ public class EnemyAI : MonoBehaviour
 
     //float speedMultiplier = 1f;
     float defaultSpeedMultiplier = 1f;
-
+    Animator animator;
 
     [Header("Visual Indicators")]
     [SerializeField] UnityEngine.Transform visualBody;
@@ -67,6 +68,9 @@ public class EnemyAI : MonoBehaviour
 
         patrolPoints = patrolParent.GetComponentsInChildren<UnityEngine.Transform>()
             .Where(t => t != patrolParent.transform).ToArray().OrderBy(x => UnityEngine.Random.value).ToArray();
+
+        animator = visualBody.GetComponent<Animator>();
+        SetAnimatorState(EnemyState.Idle);
     }
 
     private void FixedUpdate()
@@ -76,18 +80,23 @@ public class EnemyAI : MonoBehaviour
         switch (currentState)
         {
             case EnemyState.Idle:
+                SetAnimatorState(EnemyState.Idle);
                 HandleIdle();
                 break;
             case EnemyState.Patrol:
+                SetAnimatorState(EnemyState.Patrol);
                 HandlePatrol();
                 break;
             case EnemyState.Chase:
+                SetAnimatorState(EnemyState.Chase);
                 HandleChase();
                 break;
             case EnemyState.Attack:
+                SetAnimatorState(EnemyState.Attack);
                 HandleAttack();
                 break;
             case EnemyState.Search:
+                SetAnimatorState(EnemyState.Search);
                 HandleSearch();
                 break;
         }
@@ -316,5 +325,12 @@ public class EnemyAI : MonoBehaviour
 
         patrolIndex = 0;
     }
+
+    void SetAnimatorState(EnemyState state)
+    {
+        if (animator != null)
+            animator.SetInteger("AIState", (int)state);
+    }
+
 
 }

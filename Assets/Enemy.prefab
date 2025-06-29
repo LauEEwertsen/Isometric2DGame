@@ -269,7 +269,6 @@ MonoBehaviour:
   patrolSpeed: 1
   chaseSpeed: 3
   player: {fileID: 0}
-  rb: {fileID: 4630029192195905888}
   visualBody: {fileID: 2268613506076003115}
   idleIcon: {fileID: 1789010966500186576}
   minIdleTime: 1
@@ -309,6 +308,7 @@ GameObject:
   - component: {fileID: 2268613506076003115}
   - component: {fileID: 6038572410427251964}
   - component: {fileID: 5988434271931605349}
+  - component: {fileID: 8368577769675659078}
   m_Layer: 0
   m_Name: Body
   m_TagString: Untagged
@@ -433,3 +433,25 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 1, y: 1}
   m_EdgeRadius: 0
+--- !u!95 &8368577769675659078
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6483807840092806573}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: ef33c4e5ce98c6544b79fb5b934b0a67, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0

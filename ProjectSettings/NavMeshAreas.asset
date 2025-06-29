@@ -14,7 +14,7 @@ NavMeshProjectSettings:
   - name: Slow x0.5
     cost: 3
   - name: Slow x0.25
-    cost: 6
+    cost: 4
   - name: Speed up 1.25
     cost: 1
   - name: Barrier
