@@ -1,8 +1,10 @@
 using System;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Tilemaps;
 using UnityEngine.U2D;
+using UnityEngine.UI;
 using UnityEngine.Windows;
 
 // A behaviour that is attached to a playable
@@ -14,6 +16,7 @@ public class PlayerController : MonoBehaviour
     private Vector2 inputVector;
 
     [SerializeField] InputActionReference move;
+    [SerializeField] InputActionReference fire;
 
     float speedMultiplier = 1f;
     float defaultSpeedMultiplier = 1f;
@@ -22,9 +25,35 @@ public class PlayerController : MonoBehaviour
 
     [SerializeField] private Tilemap groundTilemap;
 
+    [SerializeField] GameObject projectilePrefab;
+
+    [SerializeField] GameObject Gun_firePoint;
+
+    [SerializeField] int maxHealth = 5;
+    int currentHealth;
+
+    [SerializeField] float reloadTime = 3;
+    float lastAttackTime;
+
+    [SerializeField] private Slider healthSlider;
+
+    private void Start()
+    {
+        currentHealth = maxHealth;
+    }
+
     private void Update()
     {
+        healthSlider.value = (float)currentHealth / maxHealth;
+
         inputVector = move.action.ReadValue<Vector2>();
+
+        if (fire.action.triggered && Time.time > lastAttackTime + reloadTime)
+        {
+            lastAttackTime = Time.time;
+            GameObject bullet = Instantiate(projectilePrefab, Gun_firePoint.transform.position, Quaternion.identity);
+            bullet.GetComponent<Projectile>().SetDirection((Gun_firePoint.transform.position - transform.position).normalized);
+        }
     }
 
     private void FixedUpdate()
@@ -73,6 +102,19 @@ public class PlayerController : MonoBehaviour
         else
         {
             speedMultiplier = defaultSpeedMultiplier;
+        }
+    }
+
+    public void TakeDamage(int damage)
+    {
+        currentHealth -= damage;
+        Debug.Log("Player hit");
+
+        if (currentHealth <= 0)
+        {
+            Debug.Log("Player died");
+            // Handle player death
+            Time.timeScale = 0;
         }
     }
 }

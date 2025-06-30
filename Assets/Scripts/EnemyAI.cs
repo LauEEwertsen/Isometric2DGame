@@ -6,6 +6,8 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using static UnityEngine.RuleTile.TilingRuleOutput;
 using UnityEngine.AI;
+using System.Collections;
+using UnityEngine.UI;
 
 enum EnemyState { Idle = 0, Patrol = 1, Chase = 2, Attack = 3, Search = 4 }
 
@@ -17,19 +19,29 @@ public class EnemyAI : MonoBehaviour
     [Header("Basic AI Properties")]
     [SerializeField] float detectionRange = 3f;
     [SerializeField] float attackRange = 0.5f;
+    float normalSpeed = 2f;
+    float baseSpeed = 2f;
     [SerializeField] float speed = 2f;
     [SerializeField] float patrolSpeed = 1f;
     [SerializeField] float chaseSpeed = 3f;
     [SerializeField] UnityEngine.Transform player;
-    //[SerializeField] Rigidbody2D rb;
-
-    //float speedMultiplier = 1f;
+    [SerializeField] int maxHealth = 3;
+    int currentHealth;
+    [SerializeField] private Slider healthSlider;
     float defaultSpeedMultiplier = 1f;
+    float lastAttackTime;
+    [SerializeField] float attackCooldown = 1f;
+
+    [SerializeField] float abilityCooldown = 8f;
+    [SerializeField] float burstSpeed = 6f;
+    float lastAbilityTime;
+
     Animator animator;
 
     [Header("Visual Indicators")]
     [SerializeField] UnityEngine.Transform visualBody;
     [SerializeField] GameObject idleIcon;
+    [SerializeField] GameObject Nose;
 
 
     [Header("Idle Interactions")]
@@ -71,11 +83,24 @@ public class EnemyAI : MonoBehaviour
 
         animator = visualBody.GetComponent<Animator>();
         SetAnimatorState(EnemyState.Idle);
+
+        currentHealth = maxHealth;
+    }
+
+    private void Update()
+    {
+        healthSlider.value = (float)currentHealth / maxHealth;
     }
 
     private void FixedUpdate()
     {
-        
+        if (Time.time > lastAbilityTime + abilityCooldown && currentState == EnemyState.Chase)
+        {
+            Debug.Log("Activates Burst Speed");
+            baseSpeed = burstSpeed;
+            lastAbilityTime = Time.time;
+            StartCoroutine(ResetSpeed());
+        }
 
         switch (currentState)
         {
@@ -108,6 +133,8 @@ public class EnemyAI : MonoBehaviour
             Vector2 moveDir = (agent.steeringTarget - transform.position).normalized;
             FaceIsometricDirection(moveDir);
         }
+
+        agent.speed = speed;
 
         CheckCurrentTile();
         CheckTransitions();
@@ -188,8 +215,13 @@ public class EnemyAI : MonoBehaviour
 
     void HandleAttack()
     {
-        Debug.Log("Attacking!");
-        // Will be used more in 4th task to reduce player HP here
+        if (Time.time > lastAttackTime + attackCooldown)
+        {
+            lastAttackTime = Time.time;
+            Debug.Log("Attacking!");
+            player.GetComponent<PlayerController>()?.TakeDamage(1);
+            
+        }           
     }
 
     void HandleIdle()
@@ -259,13 +291,13 @@ public class EnemyAI : MonoBehaviour
 
     bool checkIfDetectedPlayer()
     {
-        Collider2D visualBodyCollider = visualBody.GetComponent<BoxCollider2D>();
-        visualBodyCollider.enabled = false;
+        //Collider2D visualBodyCollider = visualBody.GetComponent<BoxCollider2D>();
+        //visualBodyCollider.enabled = false;
 
         Vector2 directionToPlayer = (player.position - visualBody.position).normalized;
-        RaycastHit2D hit = Physics2D.Raycast(visualBody.transform.position, directionToPlayer, detectionRange);
+        RaycastHit2D hit = Physics2D.Raycast(Nose.transform.position, directionToPlayer, detectionRange);
 
-        visualBodyCollider.enabled = true;
+        //visualBodyCollider.enabled = true;
 
         Debug.DrawRay(visualBody.position, directionToPlayer * detectionRange, Color.red); // For debugging in scene view
 
@@ -278,24 +310,25 @@ public class EnemyAI : MonoBehaviour
     }
     void CheckCurrentTile()
     {
-        Vector3 worldPos = transform.position   ;
+        Vector3 worldPos = transform.position;
         worldPos.z = 0;  // Ensure it's the correct tilemap slice
         Vector3Int cellPos = groundTilemap.WorldToCell(worldPos);
         TileBase tile = groundTilemap.GetTile(cellPos);
 
         if (tile is SpeedTile speedTile)
         {
-            agent.speed = speed * speedTile.speedMultiplier;
+            speed = baseSpeed * speedTile.speedMultiplier;
         }
         else
         {
-            agent.speed = speed * defaultSpeedMultiplier;
+            speed = baseSpeed * defaultSpeedMultiplier; 
         }
     }
 
+
     void movingToTarget(Vector2 target, float overrideSpeed = -1f)
     {
-        speed = overrideSpeed;
+        baseSpeed = overrideSpeed;
 
         agent.SetDestination(target);
     }
@@ -332,5 +365,27 @@ public class EnemyAI : MonoBehaviour
             animator.SetInteger("AIState", (int)state);
     }
 
+    public void TakeDamage(int damage)
+    {
+        Debug.Log("Enemy hit");
+        currentHealth -= damage;
+        if (currentHealth <= 0) Die();
+        else
+            lastKnownPlayerPosition = player.position;
+            HandleSearch();
 
+    }
+
+    void Die()
+    {
+        Debug.Log("Enemy died");
+        // Optional: trigger animation or particle here
+        //Destroy(gameObject);
+        Time.timeScale = 0;
+    }
+    IEnumerator ResetSpeed()
+    {
+        yield return new WaitForSeconds(2f);
+        baseSpeed = normalSpeed;
+    }
 }
